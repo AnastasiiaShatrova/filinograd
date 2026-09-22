@@ -1,39 +1,143 @@
-/* ─── Сцена: фон локации + персонаж поверх ─── */
+:root {
+  --ink: #4a3527;
+  --paper: #fdf9ef;
+  --accent: #b0492f;
+  --gold: #c9a15a;
+}
+
+* { box-sizing: border-box; margin: 0; }
+
+body {
+  min-height: 100vh;
+  color: var(--ink);
+  font-family: 'Neucha', system-ui, cursive;
+  font-size: 21px;
+  line-height: 1.6;
+  background-repeat: repeat;
+  background-size: 160px 160px;
+}
+
+/* ─── СЕЗОННЫЕ ФОНЫ ─── */
+/* Осень (сен-ноя): бежевый + листья + жёлуди */
+body.season-autumn {
+  background-color: #f0e4cc;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cpath d='M25 35 Q35 12 45 35 Q35 58 25 35Z' fill='%238B7355' opacity='.07'/%3E%3Cpath d='M100 20 Q112 2 120 22 Q110 40 100 20Z' fill='%238B7355' opacity='.05' transform='rotate(30 110 20)'/%3E%3Cellipse cx='130' cy='95' rx='5' ry='7' fill='%23705030' opacity='.06'/%3E%3Crect x='127' y='86' width='6' height='4' rx='2' fill='%23705030' opacity='.06'/%3E%3Cpath d='M40 120 Q52 100 60 120 Q50 140 40 120Z' fill='%238B7355' opacity='.05' transform='rotate(-20 50 120)'/%3E%3Cellipse cx='20' cy='80' rx='4' ry='6' fill='%23705030' opacity='.05'/%3E%3Crect x='17' y='72' width='5' height='4' rx='2' fill='%23705030' opacity='.05'/%3E%3C/svg%3E");
+}
+
+/* Зима (дек-фев): голубоватый + снежинки */
+body.season-winter {
+  background-color: #e8eef5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Ccircle cx='30' cy='30' r='2' fill='%2399aabb' opacity='.12'/%3E%3Ccircle cx='90' cy='70' r='1.5' fill='%2399aabb' opacity='.1'/%3E%3Ccircle cx='50' cy='100' r='2.5' fill='%2399aabb' opacity='.08'/%3E%3Ccircle cx='100' cy='20' r='1' fill='%2399aabb' opacity='.1'/%3E%3Cpath d='M60 55 l0-10 M55 50 l10 0 M56 46 l8 8 M64 46 l-8 8' stroke='%2399aabb' stroke-width='.7' opacity='.08'/%3E%3C/svg%3E");
+}
+
+/* Весна (мар-май): светло-зелёный + цветочки */
+body.season-spring {
+  background-color: #eef5e6;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Ccircle cx='30' cy='30' r='4' fill='%23a8c890' opacity='.08'/%3E%3Ccircle cx='30' cy='30' r='1.5' fill='%23d4a060' opacity='.1'/%3E%3Ccircle cx='100' cy='80' r='3.5' fill='%23a8c890' opacity='.07'/%3E%3Ccircle cx='100' cy='80' r='1.2' fill='%23d4a060' opacity='.09'/%3E%3Ccircle cx='60' cy='120' r='3' fill='%23a8c890' opacity='.06'/%3E%3Ccircle cx='60' cy='120' r='1' fill='%23d4a060' opacity='.08'/%3E%3C/svg%3E");
+}
+
+/* Лето (июн-авг): тёплый жёлто-зелёный + листики */
+body.season-summer {
+  background-color: #f0ecd0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='130' height='130'%3E%3Cpath d='M20 30 Q30 10 40 30 Q30 50 20 30Z' fill='%2390a848' opacity='.06'/%3E%3Cpath d='M80 80 Q92 62 100 82 Q90 100 80 80Z' fill='%2390a848' opacity='.05' transform='rotate(20 90 80)'/%3E%3Ccircle cx='110' cy='25' r='8' fill='%23e8c840' opacity='.05'/%3E%3C/svg%3E");
+}
+
+/* ─── ОСНОВНАЯ РАЗМЕТКА ─── */
+.wrap {
+  width: 100%;
+  max-width: 580px;
+  margin: 0 auto;
+  padding: 32px 20px 60px;
+  text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.town { font-size: 52px; letter-spacing: 2px; }
+.town::after {
+  content: ""; display: block; width: 140px;
+  margin: 8px auto 0; border-bottom: 3px dashed var(--gold);
+}
+.sub { margin-top: 8px; color: #8a6f52; font-size: 18px; }
+
+.card {
+  width: 100%;
+  margin-top: 24px; padding: 28px 24px;
+  background: var(--paper);
+  border: 2px dashed #b99a6b; border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(74,53,39,.12);
+  text-align: left;
+}
+.intro { text-align: center; }
+.owl { font-size: 72px; }
+
+/* ─── СЦЕНА: ФОН + ПЕРСОНАЖ ─── */
 .scene {
   position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 2px solid #e5d7ba;
-  margin-bottom: 14px;
+  width: 100%; aspect-ratio: 1 / 1;
+  border-radius: 12px; overflow: hidden;
+  border: 2px solid #e5d7ba; margin-bottom: 14px;
   background: #f3ead6;
 }
 .scene-bg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: 1;
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; z-index: 1;
 }
 .scene-char {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
+  position: absolute; bottom: 0; left: 50%;
   transform: translateX(-50%);
-  height: 65%;
-  width: auto;
-  object-fit: contain;
-  z-index: 2;
+  height: 65%; width: auto;
+  object-fit: contain; z-index: 2;
   filter: drop-shadow(0 4px 8px rgba(0,0,0,.25));
 }
 .scene-fallback {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 56px;
-  z-index: 0;
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 56px; z-index: 0;
+}
+
+.loc { color: #8a6f52; font-size: 17px; }
+.title { margin: 4px 0 10px; font-size: 28px; }
+.story { white-space: pre-line; }
+
+.task {
+  margin-top: 16px; padding: 14px 16px;
+  background: #faf1da; border: 2px dashed var(--gold); border-radius: 12px;
+}
+.task-head { color: var(--accent); margin-bottom: 4px; }
+
+.row { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+.btn {
+  font-family: inherit; font-size: 21px; cursor: pointer;
+  padding: 12px 24px; border-radius: 999px;
+  border: 2px dashed rgba(255,255,255,.6);
+  background: var(--accent); color: #fff8ec;
+  box-shadow: 0 4px 0 #7d3019; transition: transform .1s;
+}
+.btn:hover:not(:disabled) { transform: translateY(-2px); }
+.btn:disabled { opacity: .6; cursor: default; }
+.btn.ghost {
+  background: transparent; color: var(--ink);
+  border: 2px dashed #b99a6b; box-shadow: none;
+}
+.btn.ok { background: #6c7d3f; box-shadow: 0 4px 0 #4c592b; }
+.btn.walk { background: #5a7fa8; box-shadow: 0 4px 0 #3d5a78; }
+
+.hint { margin-top: 12px; color: #8a6f52; font-size: 17px; text-align: center; }
+.note { margin-top: 14px; color: var(--accent); }
+
+/* ─── ПРОГУЛКА ─── */
+.walk-scene { font-size: 80px; margin: 16px 0; }
+.walk-text { text-align: center; font-size: 20px; color: #6a5a42; }
+
+.stats {
+  margin-top: auto;
+  padding-top: 26px;
+  display: flex; gap: 8px 18px; justify-content: center; flex-wrap: wrap;
+  color: #8a6f52; font-size: 17px;
 }
