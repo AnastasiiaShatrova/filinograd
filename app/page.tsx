@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 type Quest = {
   id: string; locationId: string; locationName: string; character: string; image: string;
   title: string; story: string;
-  task: { type: string; text: string; details: string };
+  task: { type: string; text: string };
   ending: string;
 };
 
@@ -16,20 +16,18 @@ type Save = {
   todayLocs: string[];
   active: Quest | null;
   revealed: boolean;
-  skipUntil: number;
   stats: { completed: number; streak: number; lastDay: string; characters: Record<string, number> };
 };
 
 const KEY = "filinograd";
-const DAY_LIMIT = 5;                  // квестов в день на игрока
-const COOLDOWN_MS = 60 * 60 * 1000;   // «час какао» после пропуска
+const DAY_LIMIT = 5; // квестов в день на игрока
 
 const mskToday = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Moscow" });
 
 function load(): Save {
   const base: Save = {
     day: mskToday(), taken: 0, seen: [], todayLocs: [],
-    active: null, revealed: false, skipUntil: 0,
+    active: null, revealed: false,
     stats: { completed: 0, streak: 0, lastDay: "", characters: {} },
   };
   try {
@@ -50,13 +48,8 @@ export default function Page() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [imgFail, setImgFail] = useState(false);
-  const [now, setNow] = useState(Date.now());
 
   useEffect(() => setS(load()), []);
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 15000);
-    return () => clearInterval(t);
-  }, []);
 
   const commit = (next: Save) => {
     setS(next);
@@ -102,13 +95,11 @@ export default function Page() {
 
   function skip() {
     if (!s) return;
-    commit({ ...s, active: null, revealed: false, skipUntil: Date.now() + COOLDOWN_MS });
+    commit({ ...s, active: null, revealed: false });
   }
 
   if (!s) return <main className="wrap"><p className="hint">Сычик просыпается…</p></main>;
 
-  const cooling = now < s.skipUntil;
-  const coolMin = Math.ceil((s.skipUntil - now) / 60000);
   const dayDone = s.taken >= DAY_LIMIT;
   const chars = Object.entries(s.stats.characters).sort((a, b) => b[1] - a[1]);
 
@@ -125,9 +116,7 @@ export default function Page() {
             Сычик приехал учиться в академию вышивки. Во Филинграде все беды лечат одинаково —
             нитками, канвой и крестиком. Кому сегодня понадобится помощь?
           </p>
-          {cooling ? (
-            <p className="hint">☕ Сычик ушёл пить какао, вернётся через {coolMin} мин.</p>
-          ) : dayDone ? (
+          {dayDone ? (
             <p className="hint">🌙 Пять встреч на сегодня хватит. Сычик уснул в пяльцах — до завтра!</p>
           ) : (
             <button className="btn" onClick={meet} disabled={busy}>
@@ -148,24 +137,21 @@ export default function Page() {
           <div className="task">
             <p className="task-head">🧵 Задание для сычика</p>
             <p>{s.active.task.text}</p>
-            {s.active.task.details ? <p className="details">{s.active.task.details}</p> : null}
           </div>
           <div className="row">
             <button className="btn ok" onClick={complete}>Готово! ✅</button>
             <button className="btn ghost" onClick={skip}>Пропустить</button>
           </div>
-          <p className="hint">Отшил — жми «Готово!». Не лежит душа — «Пропустить», но сычику нужен час какао.</p>
+          <p className="hint">Отшил — жми «Готово!». Не лежит душа — пропускай сразу.</p>
         </section>
       )}
 
       {s.active && s.revealed && (
         <section className="card">
           <p className="loc">{s.active.locationName}</p>
-          <h2 className="title">Что было дальше</h2>
+          h2 className="title">Что было дальше</h2>
           <p className="story">{s.active.ending}</p>
-          {cooling ? (
-            <p className="hint">☕ Сычик ушёл пить какао, вернётся через {coolMin} мин.</p>
-          ) : dayDone ? (
+          {dayDone ? (
             <p className="hint">🌙 На сегодня всё! Сычик уснул в пяльцах. До завтра.</p>
           ) : (
             <button className="btn" onClick={() => commit({ ...s, active: null, revealed: false })}>
