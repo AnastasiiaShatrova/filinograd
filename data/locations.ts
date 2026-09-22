@@ -1,172 +1,60 @@
-"use client";
-
-import { useEffect, useState } from "react";
-
-type Quest = {
-  id: string; locationId: string; locationName: string; character: string; image: string;
-  title: string; story: string;
-  task: { type: string; text: string };
-  ending: string;
+export type Location = {
+  id: string;
+  name: string;
+  scene: string;
+  image: string;
 };
 
-type Save = {
-  day: string;
-  taken: number;
-  seen: string[];
-  todayLocs: string[];
-  active: Quest | null;
-  revealed: boolean;
-  stats: { completed: number; streak: number; lastDay: string; characters: Record<string, number> };
+export const LOCATIONS: Location[] = [
+  { id: "library", name: "Библиотека «Тихий омут»", scene: "полки до потолка, абажур, запах старых страниц, клетчатый плед у окна", image: "/locations/library.jpg" },
+  { id: "pond", name: "Пруд у деревянного мостика", scene: "старая лодка, кувшинки, бочка с червями, вечерний свет", image: "/locations/pond.jpg" },
+  { id: "canteen", name: "Столовая «Пух и Перья»", scene: "огромный самовар, корзины булочек, звякающие ложки", image: "/locations/canteen.jpg" },
+  { id: "deans", name: "Деканат", scene: "дубовый стол, шкаф с грамотами, глобус, стопки бумаг, печать академии", image: "/locations/deans.jpg" },
+  { id: "shop", name: "Лавка «Нить-и-Игла»", scene: "катушки до потолка, витрина с пяльцами, колокольчик над дверью", image: "/locations/shop.jpg" },
+  { id: "greenhouse", name: "Моховая оранжерея", scene: "тёплые грядки, мох на камнях, погреб с ягодами, лейки", image: "/locations/greenhouse.jpg" },
+  { id: "flight", name: "Аудитория ночных полётов", scene: "открытая форточка, карта звёздного неба, подушки на полу", image: "/locations/flight.jpg" },
+  { id: "dorm", name: "Общежитие", scene: "лоскутные одеяла, вышивка в пяльцах на стене, тайник с сухариками", image: "/locations/dorm.jpg" },
+  { id: "hall", name: "Вышивальный зал", scene: "три стенда факультетов, корзины с нитками, солнце из больших окон", image: "/locations/hall.jpg" },
+  { id: "post", name: "Совиная почта", scene: "стеллаж с ячейками, сургучные печати, кожаные сумки", image: "/locations/post.jpg" },
+  { id: "clock", name: "Часовая башня", scene: "медные шестерёнки, маятник, кукушка-совушка в окошке", image: "/locations/clock.jpg" },
+  { id: "garden", name: "Ягодный палисад", scene: "грядка брусники, низкий заборчик, старая лейка, пугало-сова", image: "/locations/garden.jpg" },
+  { id: "cafe", name: "Кафе «Сова на ветке»", scene: "маленькие столики, аромат кофе, пирожные на витрине, гирлянда из лампочек", image: "/locations/cafe.jpg" },
+  { id: "workshop", name: "Ткацкая мастерская", scene: "ткацкий станок, мотки пряжи, манекен в накидке, ножницы", image: "/locations/workshop.jpg" },
+  { id: "square", name: "Городская площадь", scene: "фонтан с совой, скамейки, фонари, брусчатка, клумбы", image: "/locations/square.jpg" },
+];
+
+export type Character = {
+  id: string;
+  name: string;
+  desc: string;
+  homeLocation: string;
+  image: string;
 };
 
-const KEY = "filinograd";
-const DAY_LIMIT = 5; // квестов в день на игрока
-
-const mskToday = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Moscow" });
-
-function load(): Save {
-  const base: Save = {
-    day: mskToday(), taken: 0, seen: [], todayLocs: [],
-    active: null, revealed: false,
-    stats: { completed: 0, streak: 0, lastDay: "", characters: {} },
-  };
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return base;
-    const s: Save = { ...base, ...JSON.parse(raw) };
-    s.stats = { ...base.stats, ...s.stats };
-    s.stats.characters = s.stats.characters ?? {};
-    if (s.day !== mskToday()) { s.day = mskToday(); s.taken = 0; s.todayLocs = []; }
-    return s;
-  } catch {
-    return base;
-  }
-}
-
-export default function Page() {
-  const [s, setS] = useState<Save | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState("");
-  const [imgFail, setImgFail] = useState(false);
-
-  useEffect(() => setS(load()), []);
-
-  const commit = (next: Save) => {
-    setS(next);
-    try { localStorage.setItem(KEY, JSON.stringify(next)); } catch {}
-  };
-
-  async function meet() {
-    if (!s || busy) return;
-    setBusy(true); setNote(""); setImgFail(false);
-    try {
-      const p = new URLSearchParams({ seen: s.seen.join(","), locs: s.todayLocs.join(",") });
-      const res = await fetch(`/api/quest?${p}`);
-      const data = await res.json();
-      if (data.tired) { setNote("Сычик сегодня уже всех обошёл. Отдохни — до завтра 🌙"); return; }
-      if (data.error) { setNote("Что-то пошло не так, попробуй ещё раз"); return; }
-      const q = data as Quest;
-      commit({
-        ...s, active: q, revealed: false,
-        taken: s.taken + 1,
-        seen: [...s.seen.slice(-200), q.id],
-        todayLocs: [...s.todayLocs, q.locationId],
-      });
-    } catch {
-      setNote("Сеть подводит, попробуй ещё раз");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function complete() {
-    if (!s?.active) return;
-    const day = mskToday();
-    const st = { ...s.stats };
-    st.completed += 1;
-    if (st.lastDay !== day) {
-      const yest = new Date(Date.now() - 86400000).toLocaleDateString("sv-SE", { timeZone: "Europe/Moscow" });
-      st.streak = st.lastDay === yest ? st.streak + 1 : 1;
-      st.lastDay = day;
-    }
-    st.characters = { ...st.characters, [s.active.character]: (st.characters[s.active.character] ?? 0) + 1 };
-    commit({ ...s, revealed: true, stats: st });
-  }
-
-  function skip() {
-    if (!s) return;
-    commit({ ...s, active: null, revealed: false });
-  }
-
-  if (!s) return <main className="wrap"><p className="hint">Сычик просыпается…</p></main>;
-
-  const dayDone = s.taken >= DAY_LIMIT;
-  const chars = Object.entries(s.stats.characters).sort((a, b) => b[1] - a[1]);
-
-  return (
-    <main className="wrap">
-      <h1 className="town">Филинград</h1>
-      <p className="sub">вышивальные квесты для сычика</p>
-      {note && <p className="note">{note}</p>}
-
-      {!s.active && (
-        <section className="card intro">
-          <div className="owl">🦉</div>
-          <p className="story">
-            Сычик приехал учиться в академию вышивки. Во Филинграде все беды лечат одинаково —
-            нитками, канвой и крестиком. Кому сегодня понадобится помощь?
-          </p>
-          {dayDone ? (
-            <p className="hint">🌙 Пять встреч на сегодня хватит. Сычик уснул в пяльцах — до завтра!</p>
-          ) : (
-            <button className="btn" onClick={meet} disabled={busy}>
-              {busy ? "Сычик летит…" : "Встретить обитателя"}
-            </button>
-          )}
-        </section>
-      )}
-
-      {s.active && !s.revealed && (
-        <section className="card">
-          {imgFail
-            ? <div className="pic ph">🧵</div>
-            : <img className="pic" src={s.active.image} alt={s.active.locationName} onError={() => setImgFail(true)} />}
-          <p className="loc">{s.active.locationName} · {s.active.character}</p>
-          <h2 className="title">{s.active.title}</h2>
-          <p className="story">{s.active.story}</p>
-          <div className="task">
-            <p className="task-head">🧵 Задание для сычика</p>
-            <p>{s.active.task.text}</p>
-          </div>
-          <div className="row">
-            <button className="btn ok" onClick={complete}>Готово! ✅</button>
-            <button className="btn ghost" onClick={skip}>Пропустить</button>
-          </div>
-          <p className="hint">Отшил — жми «Готово!». Не лежит душа — пропускай сразу.</p>
-        </section>
-      )}
-
-      {s.active && s.revealed && (
-        <section className="card">
-          <p className="loc">{s.active.locationName}</p>
-          h2 className="title">Что было дальше</h2>
-          <p className="story">{s.active.ending}</p>
-          {dayDone ? (
-            <p className="hint">🌙 На сегодня всё! Сычик уснул в пяльцах. До завтра.</p>
-          ) : (
-            <button className="btn" onClick={() => commit({ ...s, active: null, revealed: false })}>
-              Новая встреча
-            </button>
-          )}
-        </section>
-      )}
-
-      <footer className="stats">
-        <span>Отшито квестов: <b>{s.stats.completed}</b></span>
-        <span>Дней подряд: <b>{s.stats.streak}</b></span>
-        <span>Обитателей встречено: <b>{chars.length}</b></span>
-        {chars.length > 0 && <span>Любимчик: <b>{chars[0][0]}</b> ({chars[0][1]})</span>}
-      </footer>
-    </main>
-  );
-}
+export const CHARACTERS: Character[] = [
+  { id: "splyushka", name: "госпожа Сплюшка", desc: "тихая хранительница библиотеки, дремлет на посту, знает все книги наизусть", homeLocation: "library", image: "/characters/splyushka.png" },
+  { id: "peryshko", name: "студентка Пёрышко", desc: "прилежная ученица, вечно сидит в библиотеке над конспектами", homeLocation: "library", image: "/characters/peryshko.png" },
+  { id: "kuzmich", name: "Кузьмич", desc: "рыбный филин, сторож пруда, знает все байки Филинграда", homeLocation: "pond", image: "/characters/kuzmich.png" },
+  { id: "shchukar", name: "рыбак Щукарь", desc: "азартный рыбак, вечно хвастается размером пойманной рыбы", homeLocation: "pond", image: "/characters/shchukar.png" },
+  { id: "neyasit", name: "тётя Неясыть", desc: "главная повариха, от неё всегда пахнет корицей и уютом", homeLocation: "canteen", image: "/characters/neyasit.png" },
+  { id: "plyushka", name: "кондитер Плюшка", desc: "молодой кондитер, печёт пирожные в форме сов", homeLocation: "canteen", image: "/characters/plyushka.png" },
+  { id: "filinych", name: "декан Филин Филиныч", desc: "рассеянный декан академии, очки вечно на лбу, но строгий по зачётам", homeLocation: "deans", image: "/characters/filinych.png" },
+  { id: "gusena", name: "секретарь Гусёна", desc: "деловая гусыня, ведёт журнал успеваемости и расписание", homeLocation: "deans", image: "/characters/gusena.png" },
+  { id: "igolka", name: "Иголка Совиньевна", desc: "заведующая лавкой ниток и канвы, ворчливая но добрая", homeLocation: "shop", image: "/characters/igolka.png" },
+  { id: "nitochka", name: "ученица Ниточка", desc: "маленькая совушка, помогает в лавке и мечтает о своей вышивке", homeLocation: "shop", image: "/characters/nitochka.png" },
+  { id: "mokhnonog", name: "дед Мохноног", desc: "старый садовник, растит мох и ягоды, разговаривает с растениями", homeLocation: "greenhouse", image: "/characters/mokhnonog.png" },
+  { id: "lopatkin", name: "садовник Lopatkin", desc: "помощник деда, вечно в земле по уши, весёлый и шумный", homeLocation: "greenhouse", image: "/characters/lopatkin.png" },
+  { id: "gerda", name: "Герда", desc: "полярная сова, староста, учит младших летать в темноте", homeLocation: "flight", image: "/characters/gerda.png" },
+  { id: "veterok", name: "пилот Ветерок", desc: "быстрый стриж, инструктор по ночным полётам, обожает ветер", homeLocation: "flight", image: "/characters/veterok.png" },
+  { id: "pukhlik", name: "Пухлик", desc: "крошка-сычик, первокурсник, вечно голодный и сонный", homeLocation: "dorm", image: "/characters/pukhlik.png" },
+  { id: "topotun", name: "сосед Топотун", desc: "громкий филин, топает по ночам, но очень дружелюбный", homeLocation: "dorm", image: "/characters/topotun.png" },
+  { id: "starosta", name: "староста Узорка", desc: "следит за стендами факультетов, строгая но справедливая", homeLocation: "hall", image: "/characters/starosta.png" },
+  { id: "zolotinka", name: "мастерица Золотинка", desc: "вышивает золотыми нитками, её работы висят в ректорском кабинете", homeLocation: "hall", image: "/characters/zolotinka.png" },
+  { id: "ushastik", name: "Ушастик", desc: "ушастый совёнок-почтальон, вечно всё теряет и путает адреса", homeLocation: "post", image: "/characters/ushastik.png" },
+  { id: "konvertik", name: "почтальон Конвертик", desc: "аккуратная совушка, сортирует письма по цвету конвертов", homeLocation: "post", image: "/characters/konvertik.png" },
+  { id: "sipukha", name: "Сипуха", desc: "часовщица, разговаривает с механизмами как с живыми", homeLocation: "clock", image: "/characters/sipukha.png" },
+  { id: "tiktak", name: "ученик Тик-Так", desc: "молодой совёнок, учится чинить часы, вечно спешит", homeLocation: "clock", image: "/characters/tiktak.png" },
+  { id: "klyukovka", name: "Клюковка", desc: "студентка, выращивает бруснику и охраняет пугало-сову", homeLocation: "garden", image: "/characters/klyukovka.png" },
+  { id: "kogotok", name: "бариста Коготок", desc: "варит лучший кофе в Филинграде, знает все сплетни города", homeLocation: "cafe", image: "/characters/kogotok.png" },
+  { id: "tkachikha", name: "мастерица Ткачиха", desc: "ткачиха, создаёт гобелены с видами Филинграда", homeLocation: "workshop", image: "/characters/tkachikha.png" },
+];
