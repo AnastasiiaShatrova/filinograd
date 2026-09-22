@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 
 type Quest = {
-  id: string; locationId: string; locationName: string; character: string; image: string;
+  id: string; locationId: string; locationName: string;
+  characterId: string; characterName: string;
+  locationImage: string; characterImage: string;
   title: string; story: string;
   task: { type: string; text: string };
   ending: string;
@@ -14,19 +16,20 @@ type Save = {
   taken: number;
   seen: string[];
   todayLocs: string[];
+  todayTypes: string[];
   active: Quest | null;
   revealed: boolean;
   stats: { completed: number; streak: number; lastDay: string; characters: Record<string, number> };
 };
 
 const KEY = "filinograd";
-const DAY_LIMIT = 5; // квестов в день на игрока
+const DAY_LIMIT = 5;
 
 const mskToday = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Moscow" });
 
 function load(): Save {
   const base: Save = {
-    day: mskToday(), taken: 0, seen: [], todayLocs: [],
+    day: mskToday(), taken: 0, seen: [], todayLocs: [], todayTypes: [],
     active: null, revealed: false,
     stats: { completed: 0, streak: 0, lastDay: "", characters: {} },
   };
@@ -36,18 +39,16 @@ function load(): Save {
     const s: Save = { ...base, ...JSON.parse(raw) };
     s.stats = { ...base.stats, ...s.stats };
     s.stats.characters = s.stats.characters ?? {};
-    if (s.day !== mskToday()) { s.day = mskToday(); s.taken = 0; s.todayLocs = []; }
+    s.todayTypes = s.todayTypes ?? [];
+    if (s.day !== mskToday()) { s.day = mskToday(); s.taken = 0; s.todayLocs = []; s.todayTypes = []; }
     return s;
-  } catch {
-    return base;
-  }
+  } catch { return base; }
 }
 
 export default function Page() {
   const [s, setS] = useState<Save | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
-  const [imgFail, setImgFail] = useState(false);
 
   useEffect(() => setS(load()), []);
 
@@ -58,12 +59,16 @@ export default function Page() {
 
   async function meet() {
     if (!s || busy) return;
-    setBusy(true); setNote(""); setImgFail(false);
+    setBusy(true); setNote("");
     try {
-      const p = new URLSearchParams({ seen: s.seen.join(","), locs: s.todayLocs.join(",") });
+      const p = new URLSearchParams({
+        seen: s.seen.join(","),
+        locs: s.todayLocs.join(","),
+        types: s.todayTypes.join(","),
+      });
       const res = await fetch(`/api/quest?${p}`);
       const data = await res.json();
-      if (data.tired) { setNote("Сычик сегодня уже всех обошёл. Отдохни — до завтра 🌙"); return; }
+      if (data.tired) { setNote("Сычик сегодня уже всех обошёл. До завтра 🌙"); return; }
       if (data.error) { setNote("Что-то пошло не так, попробуй ещё раз"); return; }
       const q = data as Quest;
       commit({
@@ -71,12 +76,10 @@ export default function Page() {
         taken: s.taken + 1,
         seen: [...s.seen.slice(-200), q.id],
         todayLocs: [...s.todayLocs, q.locationId],
+        todayTypes: [...s.todayTypes, q.task.type],
       });
-    } catch {
-      setNote("Сеть подводит, попробуй ещё раз");
-    } finally {
-      setBusy(false);
-    }
+    } catch { setNote("Сеть подводит, попробуй ещё раз"); }
+    finally { setBusy(false); }
   }
 
   function complete() {
@@ -89,7 +92,7 @@ export default function Page() {
       st.streak = st.lastDay === yest ? st.streak + 1 : 1;
       st.lastDay = day;
     }
-    st.characters = { ...st.characters, [s.active.character]: (st.characters[s.active.character] ?? 0) + 1 };
+    st.characters = { ...st.characters, [s.active.characterName]: (st.characters[s.active.characterName] ?? 0) + 1 };
     commit({ ...s, revealed: true, stats: st });
   }
 
@@ -128,10 +131,14 @@ export default function Page() {
 
       {s.active && !s.revealed && (
         <section className="card">
-          {imgFail
-            ? <div className="pic ph">🧵</div>
-            : <img className="pic" src={s.active.image} alt={s.active.locationName} onError={() => setImgFail(true)} />}
-          <p className="loc">{s.active.locationName} · {s.active.character}</p>
+          <div className="scene">
+            <img className="scene-bg" src={s.active.locationImage} alt={s.active.locationName}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            <img className="scene-char" src={s.active.characterImage} alt={s.active.characterName}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            <div className="scene-fallback">🧵</div>
+          </div>
+          <p className="loc">{s.active.locationName} · {s.active.characterName}</p>
           <h2 className="title">{s.active.title}</h2>
           <p className="story">{s.active.story}</p>
           <div className="task">
@@ -142,17 +149,17 @@ export default function Page() {
             <button className="btn ok" onClick={complete}>Готово! ✅</button>
             <button className="btn ghost" onClick={skip}>Пропустить</button>
           </div>
-          <p className="hint">Отшил — жми «Готово!». Не лежит душа — пропускай сразу.</p>
+          <p className="hint">Отшил — жми «Готово!». Не лежит душа — пропускай.</p>
         </section>
       )}
 
       {s.active && s.revealed && (
         <section className="card">
-          <p className="loc">{s.active.locationName}</p>
-          h2 className="title">Что было дальше</h2>
+          <p className="loc">{s.active.locationName} · {s.active.characterName}</p>
+          <h2 className="title">Что было дальше</h2>
           <p className="story">{s.active.ending}</p>
           {dayDone ? (
-            <p className="hint">🌙 На сегодня всё! Сычик уснул в пяльцах. До завтра.</p>
+            <p className="hint">🌙 На сегодня всё! До завтра.</p>
           ) : (
             <button className="btn" onClick={() => commit({ ...s, active: null, revealed: false })}>
               Новая встреча
@@ -162,10 +169,10 @@ export default function Page() {
       )}
 
       <footer className="stats">
-        <span>Отшито квестов: <b>{s.stats.completed}</b></span>
+        <span>Отшито: <b>{s.stats.completed}</b></span>
         <span>Дней подряд: <b>{s.stats.streak}</b></span>
-        <span>Обитателей встречено: <b>{chars.length}</b></span>
-        {chars.length > 0 && <span>Любимчик: <b>{chars[0][0]}</b> ({chars[0][1]})</span>}
+        <span>Знакомых: <b>{chars.length}</b></span>
+        {chars.length > 0 && <span>Любимчик: <b>{chars[0][0]}</b></span>}
       </footer>
     </main>
   );
