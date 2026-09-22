@@ -11,6 +11,8 @@ type Quest = {
   ending: string;
 };
 
+type Screen = "home" | "quest" | "ending" | "walk";
+
 type Save = {
   day: string;
   taken: number;
@@ -18,7 +20,7 @@ type Save = {
   todayLocs: string[];
   todayTypes: string[];
   active: Quest | null;
-  revealed: boolean;
+  screen: Screen;
   stats: { completed: number; streak: number; lastDay: string; characters: Record<string, number> };
 };
 
@@ -27,10 +29,28 @@ const DAY_LIMIT = 5;
 
 const mskToday = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Moscow" });
 
+function getSeason(): string {
+  const m = new Date().getMonth();
+  if (m >= 2 && m <= 4) return "spring";
+  if (m >= 5 && m <= 7) return "summer";
+  if (m >= 8 && m <= 10) return "autumn";
+  return "winter";
+}
+
+const WALK_MESSAGES = [
+  "Сычик бродит по улочкам Филинграда, заглядывает в витрины и слушает, как тикает Часовая башня…",
+  "Сычик забрёл на Городскую площадь, посидел у фонтана и покормил крошек-воробьёв…",
+  "Сычик шуршит листьями в Ягодном палисаде и нюхает воздух — пахнет брусникой…",
+  "Сычик заглянул в Лавку ниток, потрогал мотки и выбежал, пока Иголка Совиньевна не заметила…",
+  "Сычик сидит на мостике у пруда, болтает лапками и считает кувшинки…",
+  "Сычик залез на подоконник в Библиотеке и смотрит, как госпожа Сплюшка дремлет над книгой…",
+  "Сычик пьёт какао в кафе «Сова на ветке» и подслушивает разговоры старых филинов…",
+];
+
 function load(): Save {
   const base: Save = {
     day: mskToday(), taken: 0, seen: [], todayLocs: [], todayTypes: [],
-    active: null, revealed: false,
+    active: null, screen: "home",
     stats: { completed: 0, streak: 0, lastDay: "", characters: {} },
   };
   try {
@@ -40,7 +60,11 @@ function load(): Save {
     s.stats = { ...base.stats, ...s.stats };
     s.stats.characters = s.stats.characters ?? {};
     s.todayTypes = s.todayTypes ?? [];
-    if (s.day !== mskToday()) { s.day = mskToday(); s.taken = 0; s.todayLocs = []; s.todayTypes = []; }
+    s.screen = s.screen ?? "home";
+    if (s.day !== mskToday()) {
+      s.day = mskToday(); s.taken = 0;
+      s.todayLocs = []; s.todayTypes = [];
+    }
     return s;
   } catch { return base; }
 }
@@ -50,7 +74,10 @@ export default function Page() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
 
-  useEffect(() => setS(load()), []);
+  useEffect(() => {
+    setS(load());
+    document.body.className = `season-${getSeason()}`;
+  }, []);
 
   const commit = (next: Save) => {
     setS(next);
@@ -72,7 +99,7 @@ export default function Page() {
       if (data.error) { setNote("Что-то пошло не так, попробуй ещё раз"); return; }
       const q = data as Quest;
       commit({
-        ...s, active: q, revealed: false,
+        ...s, active: q, screen: "quest",
         taken: s.taken + 1,
         seen: [...s.seen.slice(-200), q.id],
         todayLocs: [...s.todayLocs, q.locationId],
@@ -93,18 +120,19 @@ export default function Page() {
       st.lastDay = day;
     }
     st.characters = { ...st.characters, [s.active.characterName]: (st.characters[s.active.characterName] ?? 0) + 1 };
-    commit({ ...s, revealed: true, stats: st });
+    commit({ ...s, screen: "ending", stats: st });
   }
 
   function skip() {
     if (!s) return;
-    commit({ ...s, active: null, revealed: false });
+    commit({ ...s, active: null, screen: "walk" });
   }
 
   if (!s) return <main className="wrap"><p className="hint">Сычик просыпается…</p></main>;
 
   const dayDone = s.taken >= DAY_LIMIT;
   const chars = Object.entries(s.stats.characters).sort((a, b) => b[1] - a[1]);
+  const walkMsg = WALK_MESSAGES[Math.floor(Math.random() * WALK_MESSAGES.length)];
 
   return (
     <main className="wrap">
@@ -112,7 +140,8 @@ export default function Page() {
       <p className="sub">вышивальные квесты для сычика</p>
       {note && <p className="note">{note}</p>}
 
-      {!s.active && (
+      {/* ─── ГЛАВНАЯ ─── */}
+      {s.screen === "home" && (
         <section className="card intro">
           <div className="owl">🦉</div>
           <p className="story">
@@ -129,7 +158,8 @@ export default function Page() {
         </section>
       )}
 
-      {s.active && !s.revealed && (
+      {/* ─── КВЕСТ ─── */}
+      {s.screen === "quest" && s.active && (
         <section className="card">
           <div className="scene">
             <img className="scene-bg" src={s.active.locationImage} alt={s.active.locationName}
@@ -153,7 +183,8 @@ export default function Page() {
         </section>
       )}
 
-      {s.active && s.revealed && (
+      {/* ─── КОНЦОВКА ─── */}
+      {s.screen === "ending" && s.active && (
         <section className="card">
           <p className="loc">{s.active.locationName} · {s.active.characterName}</p>
           <h2 className="title">Что было дальше</h2>
@@ -161,8 +192,23 @@ export default function Page() {
           {dayDone ? (
             <p className="hint">🌙 На сегодня всё! До завтра.</p>
           ) : (
-            <button className="btn" onClick={() => commit({ ...s, active: null, revealed: false })}>
-              Новая встреча
+            <button className="btn walk" onClick={() => commit({ ...s, screen: "walk" })}>
+              Отправить сычика гулять 🚶
+            </button>
+          )}
+        </section>
+      )}
+
+      {/* ─── ПРОГУЛКА ─── */}
+      {s.screen === "walk" && (
+        <section className="card intro">
+          <div className="walk-scene">🦉🍂</div>
+          <p className="walk-text">{walkMsg}</p>
+          {dayDone ? (
+            <p className="hint">🌙 На сегодня всё! Сычик уснул в пяльцах. До завтра.</p>
+          ) : (
+            <button className="btn" onClick={meet} disabled={busy} style={{ marginTop: 18 }}>
+              {busy ? "Сычик летит…" : "Продолжить прогулку"}
             </button>
           )}
         </section>
